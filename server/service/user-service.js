@@ -12,7 +12,7 @@ class UserService {
 
     if (candidate) {
       throw ApiError.badRequest(
-        `Пользователь с почтовым адресом ${email} ужк существует`,
+        `Пользователь с почтовым адресом ${email} уже существует`,
       );
     }
 
@@ -69,6 +69,26 @@ class UserService {
     const token = await tokenService.removeToken(refreshToken);
 
     return token;
+  }
+
+  async refresh(refreshToken) {
+    if (!refreshToken) {
+      throw ApiError.unauthorizedError();
+    }
+
+    const userData = tokenService.validateRefreshToken(refreshToken);
+    const tokenFromDb = await tokenService.findToken(refreshToken);
+    if (!userData || !tokenFromDb) {
+      throw ApiError.unauthorizedError();
+    }
+
+    const user = await User.findById(userData.id);
+
+    const userDto = new UserDto(user);
+    const tokens = tokenService.generateTokens({ ...userDto });
+    await tokenService.saveToken(userDto.id, tokens.refreshToken);
+
+    return { ...tokens, user: userDto };
   }
 }
 
